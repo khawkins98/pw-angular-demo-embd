@@ -1,6 +1,7 @@
 <style>
   :host {
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif, "Segoe UI Symbol";
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, Helvetica, Arial,
+      sans-serif, "Segoe UI Symbol";
     box-sizing: border-box;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -14,10 +15,19 @@
 <div class="content" role="main">
   <h1>A sample embed</h1>
   <p>
-    This demonstrates an embed of the UNDRR content syndication feature in Angular.
+    This demonstrates an embed of the UNDRR content syndication feature in
+    Angular.
   </p>
   <h2>Sample embed</h2>
-  <app-undrr-widget></app-undrr-widget>
+  <app-undrr-widget
+    [pageid]="'92409'"
+    [suffixID]="'sfmhomepage'"
+  ></app-undrr-widget>
+
+  <app-undrr-widget
+    [pageid]="'92410'"
+    [suffixID]="'sfmanalyticspage'"
+  ></app-undrr-widget>
 
   <h2>Files to note</h2>
   <code>
