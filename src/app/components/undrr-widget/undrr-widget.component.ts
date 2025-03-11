@@ -1,5 +1,10 @@
-import { Component, AfterViewInit, Input } from '@angular/core';
-import { ScriptLoaderService } from '../../services/script-loader.service';
+import {
+  Component,
+  AfterViewInit,
+  Input,
+  Renderer2,
+  ElementRef,
+} from '@angular/core';
 
 @Component({
   standalone: true,
@@ -20,37 +25,36 @@ import { ScriptLoaderService } from '../../services/script-loader.service';
       }
     `,
   ],
-  providers: [ScriptLoaderService],
 })
 export class UndrrWidgetComponent implements AfterViewInit {
-  @Input() pageid!: string; // ✅ Accept pageid as input
-  @Input() suffixID!: string; // ✅ Accept suffixID as input
+  @Input() pageid!: string;
+  @Input() suffixID!: string;
 
-  private scriptUrl = 'https://publish.preventionweb.net/widget.js?rand=3d797b';
-  private nonce = '20240509121740'; // If required by CSP
+  private scriptUrl = 'assets/js/widget.js';
 
-  constructor(private scriptLoader: ScriptLoaderService) {}
+  constructor(private renderer: Renderer2, private el: ElementRef) {}
 
-  async ngAfterViewInit() {
-    try {
-      await this.scriptLoader.loadScript(this.scriptUrl, this.nonce);
-
+  ngAfterViewInit() {
+    const script = this.renderer.createElement('script');
+    script.src = this.scriptUrl;
+    script.type = 'text/javascript';
+    script.onload = () => {
       const pwWidget = (window as any).PW_Widget;
-
       if (pwWidget && typeof pwWidget.initialize === 'function') {
         pwWidget.initialize({
           contenttype: 'landingpage',
           pageid: this.pageid,
           includemetatags: false,
-          includecss: true,
+          includecss: false,
           suffixID: this.suffixID,
           activedomain: 'www.preventionweb.net',
         });
       } else {
         console.error('PW_Widget is not available or not a function');
       }
-    } catch (error) {
-      console.error(error);
-    }
+    };
+    script.onerror = () => console.error('Failed to load local widget.js');
+
+    this.renderer.appendChild(this.el.nativeElement, script);
   }
 }
