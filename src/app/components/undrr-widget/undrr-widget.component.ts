@@ -30,7 +30,7 @@ export class UndrrWidgetComponent implements AfterViewInit {
   @Input() pageid!: string;
   @Input() suffixID!: string;
 
-  private scriptUrl = 'assets/js/widget.js';
+  private scriptUrl = 'https://publish.preventionweb.net/widget-landingpage.js';
 
   constructor(private renderer: Renderer2, private el: ElementRef) {}
 
