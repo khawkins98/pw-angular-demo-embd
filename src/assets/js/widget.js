@@ -1,7 +1,9 @@
 /**
  * PreventionWeb Widget Module
  * A simplified local version of the PW Widget embed that is more performant
- * and removes bloat functionality that conflicts with CSP records.
+ * and designed to be used only for landing page embeds.
+ * It removes bloat functionality (including Handlebars) that conflicts with CSP policies.
+ * https://gitlab.com/undrr/web-backlog/-/issues/2059
  * @module PW_Widget
  * @support kenneth.hawkins@un.org
  */
@@ -13,7 +15,7 @@ var _widget_url = "https://publish.preventionweb.net";
  * @param {string} contentDomain - The domain name
  * @returns {string} Complete domain URL with protocol
  */
-function getDomainForEnv(contentDomain) {
+function pwWidgetGetDomainForEnv(contentDomain) {
   return `https://${contentDomain}`;
 }
 
@@ -23,7 +25,7 @@ function getDomainForEnv(contentDomain) {
  * @param {string} baseUrl - The base URL to prepend to relative paths
  * @returns {string} Processed HTML with absolute URLs
  */
-function applyBaseUrl(html, baseUrl) {
+function pwWidgetApplyBaseUrl(html, baseUrl) {
   const patterns = {
     link: /(?:href=['"])(?!https?:\/\/|\/\/|#)([^'"]+?)/gi,
     img: /(?:src=['"])(?!https?:\/\/|\/\/|data:)([^'"]+?)/gi,
@@ -45,7 +47,6 @@ var PW_Widget = {
   /**
    * Initializes the widget with configuration options
    * @param {Object} options - Configuration options
-   * @param {string} options.contenttype - Type of content to display
    * @param {string} options.langcode - Language code (default: 'en')
    * @param {boolean} options.includemetatags - Whether to include meta tags
    * @param {boolean} options.includecss - Whether to include CSS
@@ -54,7 +55,7 @@ var PW_Widget = {
    */
   initialize(options = {}) {
     const defaults = {
-      contenttype: "",
+      contenttype: "landingpage",
       langcode: "en",
       includemetatags: false,
       includecss: false,
@@ -76,16 +77,12 @@ var PW_Widget = {
     containerDiv.classList.add("pw-widget-container");
 
     const widgetBodyURL = new URL(`${_widget_url}/widget-body.php`);
-    widgetBodyURL.searchParams.set("contenttype", config.contenttype);
     widgetBodyURL.searchParams.set("includecss", config.includecss);
 
     fetch(widgetBodyURL)
       .then((response) => response.text())
       .then((data) => {
-        containerDiv.innerHTML = `
-          ${data}
-          <div id="PW_Widget_Content_${suffixID}"></div>
-        `;
+        containerDiv.innerHTML = `<div id="PW_Widget_Content_${suffixID}"></div>`;
         containerDiv.dataset.options = JSON.stringify(config);
         containerDiv.dataset.suffixID = suffixID;
 
@@ -107,7 +104,7 @@ var PW_Widget = {
       );
     }
 
-    const activeHostname = getDomainForEnv(
+    const activeHostname = pwWidgetGetDomainForEnv(
       options.activedomain || "www.preventionweb.net"
     );
     const { suffixID } = options;
@@ -133,48 +130,62 @@ var PW_Widget = {
         return;
       }
 
-      contentElement.innerHTML = applyBaseUrl(
+      contentElement.innerHTML = pwWidgetApplyBaseUrl(
         data.results[0].body,
         activeHostname
       );
 
       if (options.includemetatags) {
-        const entityResponse = await fetch(
-          `${activeHostname}/api/v2/content/entity?id=${options.pageid}`
-        );
-        const dataEntity = await entityResponse.json();
-
-        if (dataEntity.results.length > 0) {
-          const metatags = dataEntity.results[0].metatag;
-          const documentMetas = document.getElementsByTagName("meta");
-
-          metatags.forEach((meta) => {
-            if (meta.tag !== "meta" || meta.attributes.name === "title") return;
-
-            const attrType = meta.attributes.name
-              ? "name"
-              : meta.attributes.property
-              ? "property"
-              : "";
-            if (!attrType) return;
-
-            const exists = Array.from(documentMetas).some(
-              (docMeta) =>
-                docMeta.getAttribute(attrType) === meta.attributes[attrType]
-            );
-
-            if (!exists) {
-              const newMeta = document.createElement("meta");
-              newMeta.setAttribute(attrType, meta.attributes[attrType]);
-              newMeta.content = meta.attributes.content;
-              document.head.appendChild(newMeta);
-            }
-          });
-        }
+        await this.applyMetaTags(options.pageid, activeHostname);
       }
     } catch (error) {
       console.error("Error fetching data:", error);
       contentElement.innerHTML = "Error loading content";
+    }
+  },
+
+  /**
+   * Fetches and applies meta tags from the API
+   * @param {string} pageId - The page ID
+   * @param {string} activeHostname - The active hostname
+   * @returns {Promise<void>}
+   */
+  async applyMetaTags(pageId, activeHostname) {
+    try {
+      const entityResponse = await fetch(
+        `${activeHostname}/api/v2/content/entity?id=${pageId}`
+      );
+      const dataEntity = await entityResponse.json();
+
+      if (dataEntity.results.length > 0) {
+        const metatags = dataEntity.results[0].metatag;
+        const documentMetas = document.getElementsByTagName("meta");
+
+        metatags.forEach((meta) => {
+          if (meta.tag !== "meta" || meta.attributes.name === "title") return;
+
+          const attrType = meta.attributes.name
+            ? "name"
+            : meta.attributes.property
+            ? "property"
+            : "";
+          if (!attrType) return;
+
+          const exists = Array.from(documentMetas).some(
+            (docMeta) =>
+              docMeta.getAttribute(attrType) === meta.attributes[attrType]
+          );
+
+          if (!exists) {
+            const newMeta = document.createElement("meta");
+            newMeta.setAttribute(attrType, meta.attributes[attrType]);
+            newMeta.content = meta.attributes.content;
+            document.head.appendChild(newMeta);
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error applying meta tags:", error);
     }
   },
 
